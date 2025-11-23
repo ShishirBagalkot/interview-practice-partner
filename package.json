@@ -1,0 +1,30 @@
+{
+  "name": "interview-practice-partner",
+  "version": "1.0.0",
+  "description": "AI-powered interview practice with voice support",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "setup": "node scripts/setup-db.js",
+    "seed": "node scripts/seed-templates.js",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:voice": "cd voice-agent && python api/flask_app.py",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "docker:up": "docker-compose up --build",
+    "docker:down": "docker-compose down"
+  },
+  "keywords": [
+    "interview",
+    "practice",
+    "ai",
+    "voice",
+    "llm"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {}
+}
