@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Practice Partner</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-user-tie"></i>
+                <h1>Interview Practice Partner</h1>
+            </div>
+            <div class="connection-status" id="connectionStatus">
+                <i class="fas fa-circle"></i>
+                <span>Connecting...</span>
+            </div>
+        </header>
+
+        <main class="main">
+            <!-- Welcome Screen -->
+            <div class="welcome-screen" id="welcomeScreen">
+                <div class="welcome-content">
+                    <div class="welcome-icon">
+                        <i class="fas fa-user-tie"></i>
+                    </div>
+                    <h2>Set Up Your Interview Practice</h2>
+                    <p>Customize your interview experience by providing details about yourself and the position you're preparing for.</p>
+                    
+                    <div class="interview-setup-form" autocomplete="on">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="nameInput">Full Name *</label>
+                                <input 
+                                    type="text" 
+                                    id="nameInput" 
+                                    placeholder="Enter your full name"
+                                    autocomplete="name"
+                                    required
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label for="experienceInput">Years of Experience *</label>
+                                <select id="experienceInput" required>
+                                    <option value="">Select experience level</option>
+                                    <option value="0-1">0-1 years (Entry Level)</option>
+                                    <option value="2-3">2-3 years (Junior)</option>
+                                    <option value="4-6">4-6 years (Mid Level)</option>
+                                    <option value="7-10">7-10 years (Senior)</option>
+                                    <option value="10+">10+ years (Expert/Lead)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="roleInput">Target Role/Position *</label>
+                                <input 
+                                    type="text" 
+                                    id="roleInput" 
+                                    placeholder="e.g., Software Engineer, Product Manager, Data Scientist"
+                                    autocomplete="organization-title"
+                                    required
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label for="companyInput">Company (Optional)</label>
+                                <input 
+                                    type="text" 
+                                    id="companyInput" 
+                                    placeholder="Target company name"
+                                    autocomplete="organization"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="interviewTypeInput">Interview Type *</label>
+                                <select id="interviewTypeInput" required>
+                                    <option value="">Select interview type</option>
+                                    <option value="Behavioral">Behavioral</option>
+                                    <option value="Technical">Technical</option>
+                                    <option value="Mixed">Mixed (Behavioral + Technical)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="difficultyInput">Difficulty Level *</label>
+                                <select id="difficultyInput" required>
+                                    <option value="">Select difficulty</option>
+                                    <option value="Beginner">Beginner</option>
+                                    <option value="Intermediate">Intermediate</option>
+                                    <option value="Advanced">Advanced</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="additionalInfoInput">Additional Information (Optional)</label>
+                            <textarea 
+                                id="additionalInfoInput" 
+                                placeholder="Any specific topics, technologies, or areas you'd like to focus on..."
+                                rows="3"
+                            ></textarea>
+                        </div>
+
+                        <button id="startBtn" class="btn btn-primary btn-large">
+                            <i class="fas fa-rocket"></i>
+                            Start My Interview Practice
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Interface -->
+            <div class="chat-interface" id="chatInterface" style="display: none;">
+                <div class="chat-header">
+                    <div class="chat-info">
+                        <i class="fas fa-robot"></i>
+                        <span>Interview Partner</span>
+                    </div>
+                    <div class="chat-controls">
+                        <button id="speakerBtn" class="btn btn-voice btn-small" title="Speech Output">
+                            <i class="fas fa-volume-high"></i>
+                        </button>
+                        <button id="resetBtn" class="btn btn-secondary btn-small">
+                            <i class="fas fa-refresh"></i>
+                            New Session
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chat-messages" id="chatMessages">
+                    <!-- Messages will be dynamically inserted here -->
+                </div>
+
+                <div class="chat-input-container">
+                    <div class="input-group">
+                        <textarea 
+                            id="messageInput" 
+                            placeholder="Type your response here..."
+                            rows="2"
+                            maxlength="1000"
+                        ></textarea>
+                        <div class="input-actions">
+                            <button id="voiceBtn" class="btn btn-voice" title="Voice Input">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                            <button id="sendBtn" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i>
+                                Send
+                            </button>
+                        </div>
+                    </div>
+                    <div class="input-footer">
+                        <span class="char-count" id="charCount">0/1000</span>
+                        <span class="voice-status" id="voiceStatus" style="display: none;">
+                            <i class="fas fa-circle voice-indicator"></i>
+                            <span class="voice-text">Voice input active - speak or continue typing</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+            <div class="loading-content">
+                <div class="spinner"></div>
+                <p>Processing your response...</p>
+            </div>
+        </div>
+
+        <!-- Error Modal -->
+        <div class="modal" id="errorModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Connection Error</h3>
+                    <button class="modal-close" id="modalClose">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p id="errorMessage">Unable to connect to the backend server. Please make sure the server is running.</p>
+                </div>
+                <div class="modal-footer">
+                    <button id="retryBtn" class="btn btn-primary">Retry</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
