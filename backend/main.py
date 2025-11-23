@@ -30,6 +30,11 @@ class SimpleRequest(BaseModel):
     message: str
     model: str = "mistral"
 
+class FeedbackRequest(BaseModel):
+    messages: List[Message]
+    interview_data: Dict[str, Any]
+    model: str = "mistral"
+
 # Ollama API configuration
 OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_CHAT_ENDPOINT = f"{OLLAMA_BASE_URL}/api/chat"
@@ -152,6 +157,213 @@ async def simple_chat(request: SimpleRequest):
             status_code=500,
             detail=f"Internal server error: {str(e)}"
         )
+
+@app.post("/generate-feedback")
+async def generate_feedback(request: FeedbackRequest):
+    """
+    Generate detailed feedback and scoring based on the interview conversation
+    """
+    try:
+        # Build comprehensive feedback prompt
+        conversation_text = ""
+        user_responses = []
+        
+        for msg in request.messages:
+            if msg.role == "user":
+                user_responses.append(msg.content)
+                conversation_text += f"User: {msg.content}\n"
+            else:
+                conversation_text += f"AI Interviewer: {msg.content}\n"
+        
+        feedback_prompt = f"""
+You are an expert interview coach analyzing an interview practice session. Based on the conversation below, provide detailed feedback and scoring.
+
+INTERVIEW DETAILS:
+- Candidate: {request.interview_data.get('name', 'Unknown')}
+- Experience Level: {request.interview_data.get('experience', 'Unknown')}
+- Target Role: {request.interview_data.get('role', 'Unknown')}
+- Interview Type: {request.interview_data.get('interviewType', 'Unknown')}
+- Difficulty Level: {request.interview_data.get('difficulty', 'Unknown')}
+- Company: {request.interview_data.get('company', 'Not specified')}
+
+FULL CONVERSATION:
+{conversation_text}
+
+Please analyze this interview and provide:
+
+1. OVERALL SCORE: Rate the candidate's overall performance from 0-100.
+
+2. CATEGORY SCORES (0-100 each):
+   - Communication: Clarity, articulation, and professional communication
+   - Technical Skills: Knowledge demonstration and problem-solving approach
+   - Problem Solving: Analytical thinking and solution methodology
+   - Confidence: Self-assurance and composure during responses
+
+3. STRENGTHS: List 3-4 specific strengths demonstrated during the interview.
+
+4. AREAS FOR IMPROVEMENT: List 3-4 specific areas where the candidate can improve.
+
+5. OVERALL ASSESSMENT: A comprehensive paragraph summarizing the candidate's performance.
+
+6. NEXT STEPS: Specific recommendations for improvement and preparation.
+
+Format your response EXACTLY as follows:
+OVERALL_SCORE: [number]
+COMMUNICATION_SCORE: [number]
+TECHNICAL_SCORE: [number]
+PROBLEM_SOLVING_SCORE: [number]
+CONFIDENCE_SCORE: [number]
+
+STRENGTHS:
+• [Strength 1]
+• [Strength 2]
+• [Strength 3]
+
+IMPROVEMENTS:
+• [Improvement 1]
+• [Improvement 2]
+• [Improvement 3]
+
+ASSESSMENT:
+[Overall assessment paragraph]
+
+NEXT_STEPS:
+• [Next step 1]
+• [Next step 2]
+• [Next step 3]
+"""
+
+        # Make request to Ollama for feedback generation
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                OLLAMA_CHAT_ENDPOINT,
+                json={
+                    "model": request.model,
+                    "messages": [{"role": "user", "content": feedback_prompt}],
+                    "stream": False
+                },
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Ollama API error: {response.text}"
+                )
+            
+            ollama_response = response.json()
+            feedback_text = ollama_response.get("message", {}).get("content", "")
+            
+            # Parse the structured feedback
+            parsed_feedback = parse_feedback_response(feedback_text)
+            
+            return {
+                "success": True,
+                "feedback": parsed_feedback,
+                "raw_feedback": feedback_text,
+                "interview_data": request.interview_data,
+                "total_messages": len(request.messages),
+                "user_responses": len(user_responses)
+            }
+            
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=504,
+            detail="Timeout while generating feedback"
+        )
+    except httpx.ConnectError:
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to connect to Ollama. Make sure it's running on localhost:11434"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
+
+def parse_feedback_response(feedback_text):
+    """
+    Parse the structured feedback response from the AI
+    """
+    try:
+        lines = feedback_text.strip().split('\n')
+        feedback = {
+            "overall_score": 75,
+            "communication_score": 75,
+            "technical_score": 75,
+            "problem_solving_score": 75,
+            "confidence_score": 75,
+            "strengths": [],
+            "improvements": [],
+            "assessment": "Assessment pending analysis.",
+            "next_steps": []
+        }
+        
+        current_section = None
+        
+        for line in lines:
+            line = line.strip()
+            
+            if line.startswith("OVERALL_SCORE:"):
+                try:
+                    feedback["overall_score"] = int(line.split(":")[1].strip())
+                except:
+                    pass
+            elif line.startswith("COMMUNICATION_SCORE:"):
+                try:
+                    feedback["communication_score"] = int(line.split(":")[1].strip())
+                except:
+                    pass
+            elif line.startswith("TECHNICAL_SCORE:"):
+                try:
+                    feedback["technical_score"] = int(line.split(":")[1].strip())
+                except:
+                    pass
+            elif line.startswith("PROBLEM_SOLVING_SCORE:"):
+                try:
+                    feedback["problem_solving_score"] = int(line.split(":")[1].strip())
+                except:
+                    pass
+            elif line.startswith("CONFIDENCE_SCORE:"):
+                try:
+                    feedback["confidence_score"] = int(line.split(":")[1].strip())
+                except:
+                    pass
+            elif line.startswith("STRENGTHS:"):
+                current_section = "strengths"
+            elif line.startswith("IMPROVEMENTS:"):
+                current_section = "improvements"
+            elif line.startswith("ASSESSMENT:"):
+                current_section = "assessment"
+                feedback["assessment"] = ""
+            elif line.startswith("NEXT_STEPS:"):
+                current_section = "next_steps"
+            elif line.startswith("•") and current_section:
+                item = line[1:].strip()
+                if current_section in ["strengths", "improvements", "next_steps"]:
+                    feedback[current_section].append(item)
+            elif current_section == "assessment" and line:
+                if feedback["assessment"]:
+                    feedback["assessment"] += " " + line
+                else:
+                    feedback["assessment"] = line
+        
+        return feedback
+        
+    except Exception as e:
+        # Return default feedback structure on parsing error
+        return {
+            "overall_score": 75,
+            "communication_score": 75,
+            "technical_score": 75,
+            "problem_solving_score": 75,
+            "confidence_score": 75,
+            "strengths": ["Participated actively in the interview", "Provided thoughtful responses", "Demonstrated engagement"],
+            "improvements": ["Continue practicing interview skills", "Work on specific technical areas", "Build confidence through more practice"],
+            "assessment": "The candidate showed good potential and engagement during the interview practice session.",
+            "next_steps": ["Schedule more practice sessions", "Focus on specific improvement areas", "Continue building interview confidence"]
+        }
 
 if __name__ == "__main__":
     import uvicorn

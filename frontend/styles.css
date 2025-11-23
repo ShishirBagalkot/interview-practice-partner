@@ -257,6 +257,15 @@ input:valid, select:valid {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
+.btn-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+}
+
+.btn-warning:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
 .btn-small {
     padding: 8px 16px;
     font-size: 0.9rem;
@@ -884,4 +893,214 @@ input:valid, select:valid {
 
 .chat-messages::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
+}
+
+/* Feedback Modal Specific Styles */
+.feedback-modal .modal-content {
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.feedback-content {
+    width: 100%;
+}
+
+.feedback-score {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+}
+
+.score-circle {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.score-number {
+    font-size: 4rem;
+    font-weight: 700;
+    color: #3b82f6;
+    line-height: 1;
+    animation: scoreCount 0.8s ease-out;
+}
+
+.score-label {
+    font-size: 1.1rem;
+    color: #64748b;
+    font-weight: 500;
+    margin-top: 8px;
+}
+
+.score-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.score-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.score-category {
+    min-width: 140px;
+    font-weight: 500;
+    color: #374151;
+    font-size: 0.95rem;
+}
+
+.score-bar {
+    flex: 1;
+    height: 12px;
+    background: #e5e7eb;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+}
+
+.score-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+    border-radius: 6px;
+    animation: progressFill 1.2s ease-out;
+    transition: width 0.3s ease;
+}
+
+.score-value {
+    min-width: 45px;
+    text-align: right;
+    font-weight: 600;
+    color: #059669;
+    font-size: 0.9rem;
+}
+
+.feedback-content-section {
+    margin-bottom: 25px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    animation: slideIn 0.6s ease-out;
+}
+
+.feedback-content-section h4 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.feedback-content-section h4 i {
+    color: #3b82f6;
+    font-size: 1rem;
+}
+
+.feedback-text {
+    line-height: 1.7;
+    color: #4b5563;
+    font-size: 0.95rem;
+}
+
+.feedback-text ul {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.feedback-text li {
+    margin: 8px 0;
+}
+
+.feedback-text strong {
+    color: #374151;
+    font-weight: 600;
+}
+
+.feedback-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px;
+    color: #64748b;
+    font-style: italic;
+}
+
+.feedback-loading i {
+    animation: spin 1s linear infinite;
+}
+
+/* Additional animations for feedback */
+@keyframes progressFill {
+    from {
+        width: 0%;
+    }
+}
+
+@keyframes scoreCount {
+    from {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Score color variations */
+.score-fill.excellent {
+    background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+}
+
+.score-fill.good {
+    background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.score-fill.average {
+    background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+}
+
+.score-fill.poor {
+    background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+}
+
+/* Responsive feedback modal */
+@media (max-width: 768px) {
+    .feedback-modal .modal-content {
+        max-width: 95vw;
+        margin: 10px;
+    }
+    
+    .feedback-score {
+        flex-direction: column;
+    }
+    
+    .score-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    
+    .score-category {
+        min-width: auto;
+        text-align: center;
+    }
+    
+    .score-value {
+        text-align: center;
+    }
+    
+    .score-number {
+        font-size: 3rem;
+    }
 }

@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -127,6 +128,10 @@
                         <button id="speakerBtn" class="btn btn-voice btn-small" title="Speech Output">
                             <i class="fas fa-volume-high"></i>
                         </button>
+                        <button id="endInterviewBtn" class="btn btn-warning btn-small" title="End Interview & Get Feedback">
+                            <i class="fas fa-flag-checkered"></i>
+                            End Interview
+                        </button>
                         <button id="resetBtn" class="btn btn-secondary btn-small">
                             <i class="fas fa-refresh"></i>
                             New Session
@@ -187,6 +192,88 @@
                 </div>
                 <div class="modal-footer">
                     <button id="retryBtn" class="btn btn-primary">Retry</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feedback Modal -->
+        <div class="modal feedback-modal" id="feedbackModal" style="display: none;">
+            <div class="modal-content feedback-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-trophy"></i> Interview Feedback & Results</h3>
+                    <button class="modal-close" id="feedbackModalClose">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="feedback-score">
+                        <div class="score-circle">
+                            <div class="score-number" id="overallScore">85</div>
+                            <div class="score-label">Overall Score</div>
+                        </div>
+                        <div class="score-breakdown">
+                            <div class="score-item">
+                                <span class="score-category">Communication</span>
+                                <div class="score-bar">
+                                    <div class="score-fill" id="communicationScore" style="width: 85%;"></div>
+                                </div>
+                                <span class="score-value" id="communicationValue">85%</span>
+                            </div>
+                            <div class="score-item">
+                                <span class="score-category">Technical Skills</span>
+                                <div class="score-bar">
+                                    <div class="score-fill" id="technicalScore" style="width: 75%;"></div>
+                                </div>
+                                <span class="score-value" id="technicalValue">75%</span>
+                            </div>
+                            <div class="score-item">
+                                <span class="score-category">Problem Solving</span>
+                                <div class="score-bar">
+                                    <div class="score-fill" id="problemSolvingScore" style="width: 90%;"></div>
+                                </div>
+                                <span class="score-value" id="problemSolvingValue">90%</span>
+                            </div>
+                            <div class="score-item">
+                                <span class="score-category">Confidence</span>
+                                <div class="score-bar">
+                                    <div class="score-fill" id="confidenceScore" style="width: 80%;"></div>
+                                </div>
+                                <span class="score-value" id="confidenceValue">80%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="feedback-content-section">
+                        <h4><i class="fas fa-thumbs-up"></i> Strengths</h4>
+                        <div id="feedbackStrengths" class="feedback-text">
+                            Loading feedback...
+                        </div>
+                    </div>
+                    <div class="feedback-content-section">
+                        <h4><i class="fas fa-lightbulb"></i> Areas for Improvement</h4>
+                        <div id="feedbackImprovements" class="feedback-text">
+                            Loading feedback...
+                        </div>
+                    </div>
+                    <div class="feedback-content-section">
+                        <h4><i class="fas fa-star"></i> Overall Assessment</h4>
+                        <div id="feedbackOverall" class="feedback-text">
+                            Loading feedback...
+                        </div>
+                    </div>
+                    <div class="feedback-content-section">
+                        <h4><i class="fas fa-chart-line"></i> Next Steps</h4>
+                        <div id="feedbackNextSteps" class="feedback-text">
+                            Loading recommendations...
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="downloadFeedbackBtn" class="btn btn-secondary">
+                        <i class="fas fa-file-pdf"></i>
+                        Download PDF Report
+                    </button>
+                    <button id="startNewInterviewBtn" class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        Start New Interview
+                    </button>
                 </div>
             </div>
         </div>

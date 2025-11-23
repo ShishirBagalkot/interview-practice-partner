@@ -47,6 +47,7 @@ class InterviewPracticeApp {
         this.voiceBtn = document.getElementById('voiceBtn');
         this.speakerBtn = document.getElementById('speakerBtn');
         this.resetBtn = document.getElementById('resetBtn');
+        this.endInterviewBtn = document.getElementById('endInterviewBtn');
         
         // Status and utility elements
         this.connectionStatus = document.getElementById('connectionStatus');
@@ -57,6 +58,12 @@ class InterviewPracticeApp {
         this.retryBtn = document.getElementById('retryBtn');
         this.charCount = document.getElementById('charCount');
         this.voiceStatus = document.getElementById('voiceStatus');
+        
+        // Feedback modal elements
+        this.feedbackModal = document.getElementById('feedbackModal');
+        this.feedbackModalClose = document.getElementById('feedbackModalClose');
+        this.downloadFeedbackBtn = document.getElementById('downloadFeedbackBtn');
+        this.startNewInterviewBtn = document.getElementById('startNewInterviewBtn');
     }
 
     bindEvents() {
@@ -83,6 +90,7 @@ class InterviewPracticeApp {
         this.sendBtn.addEventListener('click', () => this.sendMessage());
         this.voiceBtn.addEventListener('click', () => this.toggleVoiceInput());
         this.speakerBtn.addEventListener('click', () => this.toggleSpeechOutput());
+        this.endInterviewBtn.addEventListener('click', () => this.endInterview());
         this.messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -97,6 +105,14 @@ class InterviewPracticeApp {
         this.retryBtn.addEventListener('click', () => {
             this.hideModal();
             this.checkConnection();
+        });
+        
+        // Feedback modal events
+        this.feedbackModalClose.addEventListener('click', () => this.hideFeedbackModal());
+        this.downloadFeedbackBtn.addEventListener('click', () => this.downloadFeedbackPDF());
+        this.startNewInterviewBtn.addEventListener('click', () => {
+            this.hideFeedbackModal();
+            this.resetSession();
         });
 
         // Auto-resize textarea
@@ -715,11 +731,7 @@ First, could you tell me a bit about yourself and your background?`;
             nextQuestion = await this.generateContextualIntroQuestion();
         } else {
             // Transition to actual interview
-            const transitionMessage = `Perfect! I have a good understanding of your background now. Let me review what you've shared:
-
-${this.summarizeIntroResponses()}
-
-Let's begin the actual interview. I'll ask you questions similar to what you might encounter in a real ${this.introData.interviewType.toLowerCase()} interview for a ${this.introData.role} position.
+            const transitionMessage = `Perfect! I have a good understanding of your background now. Let's begin the actual interview. I'll ask you questions similar to what you might encounter in a real ${this.introData.interviewType.toLowerCase()} interview for a ${this.introData.role} position.
 
 Let's start with our first question:`;
             
@@ -762,31 +774,29 @@ Let's start with our first question:`;
     }
 
     async startActualInterview() {
-        // Create comprehensive context for the actual interview including intro responses
-        const introContext = this.introResponses.map((resp, index) => 
-            `Introduction Q${index + 1}: ${resp.question}\nCandidate Response: ${resp.response}`
-        ).join('\n\n');
+        // Use only 2nd and 3rd responses to keep context manageable for local LLM
+        const relevantResponses = this.introResponses.slice(1, 3); // Get responses 2 and 3 (index 1 and 2)
         
-        const context = `You are now starting the formal interview portion. Here's the complete candidate information:
+        let contextualInfo = '';
+        if (relevantResponses.length > 0) {
+            contextualInfo = relevantResponses.map((resp, index) => 
+                `Q: ${resp.question}\nA: ${resp.response}`
+            ).join('\n\n');
+        }
+        
+        const context = `You are conducting a ${this.introData.interviewType.toLowerCase()} interview at ${this.introData.difficulty.toLowerCase()} difficulty for a ${this.introData.role} position.
 
-BASIC INFO:
-- Name: ${this.introData.name}
-- Experience Level: ${this.introData.experience}
-- Target Role: ${this.introData.role}
-- Target Company: ${this.introData.company || 'Not specified'}
-- Interview Type: ${this.introData.interviewType}
-- Difficulty Level: ${this.introData.difficulty}
-- Additional Focus Areas: ${this.introData.additionalInfo || 'None specified'}
+Candidate: ${this.introData.name}
+Experience: ${this.introData.experience}
+${this.introData.company ? `Target Company: ${this.introData.company}` : ''}
 
-INTRODUCTION CONVERSATION:
-${introContext}
+Key Background:
+${contextualInfo}
 
-Now begin the formal ${this.introData.interviewType.toLowerCase()} interview at ${this.introData.difficulty.toLowerCase()} difficulty level. Use the information from the introduction conversation to ask relevant, personalized questions. You can reference their previous responses to create more engaging and contextual questions.
-
-Start with your first formal interview question:`;
+Ask your first formal interview question. Keep it relevant to their background and the role they're targeting.`;
         
         try {
-            // Send context to get the first interview question
+            // Send simplified context to get the first interview question
             const response = await this.sendToBackend(context);
             
             if (response && response.response) {
@@ -1121,6 +1131,434 @@ Generate the next question (step ${this.introStep + 1} of 4) that builds on thei
             this.speakerBtn.innerHTML = '<i class="fas fa-volume-xmark"></i>';
             this.speakerBtn.title = 'Speech Disabled - Click to Enable';
         }
+    }
+
+    async endInterview() {
+        if (this.messages.length < 3) {
+            this.showError('Please have a conversation with the interviewer before ending the interview.');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to end the interview? You will receive detailed feedback on your performance.')) {
+            return;
+        }
+
+        this.showLoading();
+        this.endInterviewBtn.disabled = true;
+
+        try {
+            // Generate feedback based on conversation
+            const feedback = await this.generateFeedback();
+            this.showFeedbackModal(feedback);
+        } catch (error) {
+            console.error('Failed to generate feedback:', error);
+            this.showError('Failed to generate feedback. Please try again or contact support.');
+        } finally {
+            this.hideLoading();
+            this.endInterviewBtn.disabled = false;
+        }
+    }
+
+    async generateFeedback() {
+        const response = await fetch(`${this.apiBaseUrl}/generate-feedback`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: 'mistral',
+                messages: this.messages.filter(msg => !msg.isThinking).map(msg => ({
+                    role: msg.role,
+                    content: msg.content
+                })),
+                interview_data: this.introData
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error('Failed to generate feedback');
+        }
+
+        return result.feedback;
+    }
+
+    showFeedbackModal(feedback) {
+        // Update scores with animation
+        this.updateScoreDisplay('overallScore', feedback.overall_score);
+        this.updateScoreDisplay('communicationValue', feedback.communication_score, 'communicationScore');
+        this.updateScoreDisplay('technicalValue', feedback.technical_score, 'technicalScore');
+        this.updateScoreDisplay('problemSolvingValue', feedback.problem_solving_score, 'problemSolvingScore');
+        this.updateScoreDisplay('confidenceValue', feedback.confidence_score, 'confidenceScore');
+
+        // Update feedback content
+        document.getElementById('feedbackStrengths').innerHTML = this.formatFeedbackList(feedback.strengths);
+        document.getElementById('feedbackImprovements').innerHTML = this.formatFeedbackList(feedback.improvements);
+        document.getElementById('feedbackOverall').textContent = feedback.assessment;
+        document.getElementById('feedbackNextSteps').innerHTML = this.formatFeedbackList(feedback.next_steps);
+
+        // Store feedback for download
+        this.currentFeedback = feedback;
+
+        // Show modal
+        this.feedbackModal.style.display = 'flex';
+
+        // Add entrance animation
+        setTimeout(() => {
+            this.feedbackModal.querySelector('.modal-content').style.animation = 'slideIn 0.5s ease-out';
+        }, 10);
+    }
+
+    hideFeedbackModal() {
+        this.feedbackModal.style.display = 'none';
+        // Redirect to start page when modal is closed
+        this.redirectToStartPage();
+    }
+
+    redirectToStartPage() {
+        // Reset all interview state
+        this.messages = [];
+        this.isInIntroFlow = false;
+        this.introData = {};
+        this.introStep = 0;
+        this.introResponses = [];
+        this.currentFeedback = null;
+        
+        // Stop any ongoing speech
+        this.stopSpeaking();
+        
+        // Show welcome screen and hide chat interface
+        this.chatInterface.style.display = 'none';
+        this.welcomeScreen.style.display = 'flex';
+        
+        // Clear and focus on name input
+        this.clearForm();
+        setTimeout(() => {
+            this.nameInput.focus();
+        }, 100);
+    }
+
+    updateScoreDisplay(elementId, score, barId = null) {
+        const scoreElement = document.getElementById(elementId);
+        if (scoreElement) {
+            // Animate the number counting up
+            this.animateNumber(scoreElement, 0, score, 1000);
+            
+            if (barId) {
+                const barElement = document.getElementById(barId);
+                if (barElement) {
+                    // Update progress bar
+                    setTimeout(() => {
+                        barElement.style.width = `${score}%`;
+                        barElement.className = `score-fill ${this.getScoreClass(score)}`;
+                    }, 200);
+                    
+                    // Update text value
+                    scoreElement.textContent = `${score}%`;
+                }
+            }
+        }
+    }
+
+    animateNumber(element, start, end, duration) {
+        const startTime = performance.now();
+        const range = end - start;
+        
+        const updateNumber = (currentTime) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const easeProgress = this.easeOutQuart(progress);
+            const current = Math.round(start + (range * easeProgress));
+            
+            element.textContent = element.id === 'overallScore' ? current : `${current}%`;
+            
+            if (progress < 1) {
+                requestAnimationFrame(updateNumber);
+            }
+        };
+        
+        requestAnimationFrame(updateNumber);
+    }
+
+    easeOutQuart(t) {
+        return 1 - (--t) * t * t * t;
+    }
+
+    getScoreClass(score) {
+        if (score >= 85) return 'excellent';
+        if (score >= 70) return 'good';
+        if (score >= 60) return 'average';
+        return 'poor';
+    }
+
+    formatFeedbackList(items) {
+        if (!Array.isArray(items) || items.length === 0) {
+            return '<p>No specific items identified.</p>';
+        }
+        
+        return '<ul>' + items.map(item => `<li>${this.escapeHtml(item)}</li>`).join('') + '</ul>';
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    downloadFeedbackPDF() {
+        if (!this.currentFeedback) {
+            this.showError('No feedback available to download.');
+            return;
+        }
+
+        try {
+            // Initialize jsPDF
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Set up document styling
+            const pageWidth = doc.internal.pageSize.width;
+            const pageHeight = doc.internal.pageSize.height;
+            const margin = 20;
+            const contentWidth = pageWidth - (margin * 2);
+            let yPosition = margin;
+            
+            // Helper function to add text with automatic line wrapping
+            const addWrappedText = (text, x, y, maxWidth, fontSize = 12, fontStyle = 'normal') => {
+                doc.setFontSize(fontSize);
+                doc.setFont('helvetica', fontStyle);
+                const lines = doc.splitTextToSize(text, maxWidth);
+                doc.text(lines, x, y);
+                return y + (lines.length * fontSize * 0.5);
+            };
+            
+            // Helper function to check if we need a new page
+            const checkNewPage = (requiredHeight) => {
+                if (yPosition + requiredHeight > pageHeight - margin) {
+                    doc.addPage();
+                    yPosition = margin;
+                }
+            };
+            
+            // Header Section
+            doc.setFillColor(59, 130, 246); // Blue background
+            doc.rect(0, 0, pageWidth, 40, 'F');
+            
+            doc.setTextColor(255, 255, 255); // White text
+            doc.setFontSize(24);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Interview Practice Report', pageWidth/2, 25, { align: 'center' });
+            
+            yPosition = 50;
+            doc.setTextColor(0, 0, 0); // Black text
+            
+            // Candidate Information Section
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Candidate Information', margin, yPosition);
+            yPosition += 10;
+            
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            const candidateInfo = [
+                `Name: ${this.introData.name || 'N/A'}`,
+                `Target Role: ${this.introData.role || 'N/A'}`,
+                `Company: ${this.introData.company || 'N/A'}`,
+                `Experience Level: ${this.introData.experience || 'N/A'}`,
+                `Interview Type: ${this.introData.interviewType || 'N/A'}`,
+                `Difficulty Level: ${this.introData.difficulty || 'N/A'}`,
+                `Date: ${new Date().toLocaleDateString()}`,
+                `Time: ${new Date().toLocaleTimeString()}`
+            ];
+            
+            candidateInfo.forEach(info => {
+                doc.text(info, margin, yPosition);
+                yPosition += 6;
+            });
+            
+            yPosition += 10;
+            checkNewPage(60);
+            
+            // Scores Section
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Performance Scores', margin, yPosition);
+            yPosition += 15;
+            
+            // Overall Score (Large)
+            doc.setFillColor(240, 248, 255);
+            doc.rect(margin, yPosition - 5, contentWidth, 25, 'F');
+            doc.setFontSize(20);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(59, 130, 246);
+            doc.text(`Overall Score: ${this.currentFeedback.overall_score}/100`, pageWidth/2, yPosition + 10, { align: 'center' });
+            yPosition += 30;
+            
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'normal');
+            
+            // Category Scores
+            const scores = [
+                { name: 'Communication', score: this.currentFeedback.communication_score },
+                { name: 'Technical Skills', score: this.currentFeedback.technical_score },
+                { name: 'Problem Solving', score: this.currentFeedback.problem_solving_score },
+                { name: 'Confidence', score: this.currentFeedback.confidence_score }
+            ];
+            
+            scores.forEach(scoreItem => {
+                const barWidth = (scoreItem.score / 100) * (contentWidth - 100);
+                
+                // Score label
+                doc.text(`${scoreItem.name}:`, margin, yPosition);
+                doc.text(`${scoreItem.score}/100`, pageWidth - margin - 30, yPosition, { align: 'right' });
+                
+                // Score bar background
+                doc.setFillColor(229, 231, 235);
+                doc.rect(margin, yPosition + 2, contentWidth - 100, 8, 'F');
+                
+                // Score bar fill with color based on score
+                if (scoreItem.score >= 85) doc.setFillColor(16, 185, 129); // Green
+                else if (scoreItem.score >= 70) doc.setFillColor(59, 130, 246); // Blue
+                else if (scoreItem.score >= 60) doc.setFillColor(245, 158, 11); // Orange
+                else doc.setFillColor(239, 68, 68); // Red
+                
+                doc.rect(margin, yPosition + 2, barWidth, 8, 'F');
+                yPosition += 18;
+            });
+            
+            yPosition += 10;
+            checkNewPage(40);
+            
+            // Strengths Section
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Strengths', margin, yPosition);
+            yPosition += 10;
+            
+            if (this.currentFeedback.strengths && this.currentFeedback.strengths.length > 0) {
+                this.currentFeedback.strengths.forEach((strength, index) => {
+                    checkNewPage(15);
+                    yPosition = addWrappedText(`• ${strength}`, margin, yPosition, contentWidth, 11);
+                    yPosition += 3;
+                });
+            } else {
+                yPosition = addWrappedText('No specific strengths identified.', margin, yPosition, contentWidth, 11);
+            }
+            
+            yPosition += 10;
+            checkNewPage(40);
+            
+            // Areas for Improvement Section
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Areas for Improvement', margin, yPosition);
+            yPosition += 10;
+            
+            if (this.currentFeedback.improvements && this.currentFeedback.improvements.length > 0) {
+                this.currentFeedback.improvements.forEach((improvement, index) => {
+                    checkNewPage(15);
+                    yPosition = addWrappedText(`• ${improvement}`, margin, yPosition, contentWidth, 11);
+                    yPosition += 3;
+                });
+            } else {
+                yPosition = addWrappedText('No specific areas for improvement identified.', margin, yPosition, contentWidth, 11);
+            }
+            
+            yPosition += 10;
+            checkNewPage(40);
+            
+            // Overall Assessment Section
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Overall Assessment', margin, yPosition);
+            yPosition += 10;
+            
+            yPosition = addWrappedText(this.currentFeedback.assessment || 'No assessment provided.', margin, yPosition, contentWidth, 11);
+            yPosition += 10;
+            checkNewPage(40);
+            
+            // Next Steps Section
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Recommended Next Steps', margin, yPosition);
+            yPosition += 10;
+            
+            if (this.currentFeedback.next_steps && this.currentFeedback.next_steps.length > 0) {
+                this.currentFeedback.next_steps.forEach((step, index) => {
+                    checkNewPage(15);
+                    yPosition = addWrappedText(`${index + 1}. ${step}`, margin, yPosition, contentWidth, 11);
+                    yPosition += 3;
+                });
+            } else {
+                yPosition = addWrappedText('No specific next steps recommended.', margin, yPosition, contentWidth, 11);
+            }
+            
+            // Footer
+            const footerY = pageHeight - 20;
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(128, 128, 128);
+            doc.text('Generated by Interview Practice Partner', margin, footerY);
+            doc.text(new Date().toISOString(), pageWidth - margin, footerY, { align: 'right' });
+            
+            // Save the PDF
+            const filename = `Interview_Feedback_${this.introData.name?.replace(/\s+/g, '_') || 'Report'}_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(filename);
+            
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            this.showError('Failed to generate PDF report. Please try again.');
+        }
+    }
+
+    generateFeedbackReport(feedback) {
+        const date = new Date().toLocaleDateString();
+        const time = new Date().toLocaleTimeString();
+        
+        return `INTERVIEW PRACTICE FEEDBACK REPORT
+${'='.repeat(50)}
+
+Candidate: ${this.introData.name || 'N/A'}
+Date: ${date}
+Time: ${time}
+Role: ${this.introData.role || 'N/A'}
+Company: ${this.introData.company || 'N/A'}
+Interview Type: ${this.introData.interviewType || 'N/A'}
+Difficulty: ${this.introData.difficulty || 'N/A'}
+Experience Level: ${this.introData.experience || 'N/A'}
+
+SCORES
+${'-'.repeat(20)}
+Overall Score: ${feedback.overall_score}/100
+Communication: ${feedback.communication_score}/100
+Technical Skills: ${feedback.technical_score}/100
+Problem Solving: ${feedback.problem_solving_score}/100
+Confidence: ${feedback.confidence_score}/100
+
+STRENGTHS
+${'-'.repeat(20)}
+${feedback.strengths.map((item, i) => `${i + 1}. ${item}`).join('\n')}
+
+AREAS FOR IMPROVEMENT
+${'-'.repeat(20)}
+${feedback.improvements.map((item, i) => `${i + 1}. ${item}`).join('\n')}
+
+OVERALL ASSESSMENT
+${'-'.repeat(20)}
+${feedback.assessment}
+
+NEXT STEPS
+${'-'.repeat(20)}
+${feedback.next_steps.map((item, i) => `${i + 1}. ${item}`).join('\n')}
+
+${'='.repeat(50)}
+Generated by Interview Practice Partner
+${new Date().toISOString()}`;
     }
 }
 
